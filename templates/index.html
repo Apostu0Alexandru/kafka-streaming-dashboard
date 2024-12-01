@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Sensor Data Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .chart {
+            margin-bottom: 20px;
+        }
+        #error-message {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-time Sensor Data Dashboard</h1>
+    <div id="error-message"></div>
+    <div id="temperature-chart" class="chart"></div>
+    <div id="humidity-chart" class="chart"></div>
+    <div id="pressure-chart" class="chart"></div>
+
+    <script>
+        function initChart(elementId, title, yaxis_title) {
+            const layout = {
+                title: title,
+                xaxis: { 
+                    title: 'Time',
+                    tickangle: -45
+                },
+                yaxis: { title: yaxis_title },
+                height: 400,
+                margin: { t: 40, b: 80 }
+            };
+
+            Plotly.newPlot(elementId, [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: title,
+                line: { shape: 'spline' }
+            }], layout);
+        }
+
+        initChart('temperature-chart', 'Temperature', 'Temperature (°C)');
+        initChart('humidity-chart', 'Humidity', 'Humidity (%)');
+        initChart('pressure-chart', 'Pressure', 'Pressure (hPa)');
+
+        function updateCharts() {
+            $.getJSON('/data', function(data) {
+                console.log("Received data:", data);
+                if (data.timestamps.length === 0) {
+                    console.warn("No data received");
+                    $("#error-message").text("No data available. Please check if the Kafka producer and consumer are running.");
+                    return;
+                }
+                $("#error-message").text("");
+
+                const timestamps = data.timestamps.reverse();
+                const temperatures = data.temperatures.reverse();
+                const humidities = data.humidities.reverse();
+                const pressures = data.pressures.reverse();
+
+                Plotly.update('temperature-chart', {
+                    x: [timestamps],
+                    y: [temperatures]
+                });
+
+                Plotly.update('humidity-chart', {
+                    x: [timestamps],
+                    y: [humidities]
+                });
+
+                Plotly.update('pressure-chart', {
+                    x: [timestamps],
+                    y: [pressures]
+                });
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Failed to fetch data:', textStatus, errorThrown);
+                $("#error-message").text("Failed to fetch data. Please check the server logs.");
+            });
+        }
+
+        setInterval(updateCharts, 1000);
+        updateCharts();
+    </script>
+</body>
+</html>
